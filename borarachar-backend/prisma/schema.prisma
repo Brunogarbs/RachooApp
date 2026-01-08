@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id @default(uuid())
+  nome  String
+  email String @unique
+  senha String
+
+  eventos Evento[]
+  pessoas Pessoa[]
+}
+
+model Evento {
+  id        String   @id @default(uuid())
+  nome      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  pessoas   Pessoa[]
+  gastos    Gasto[]
+  createdAt DateTime @default(now())
+}
+
+model Pessoa {
+  id       String  @id @default(uuid())
+  nome     String
+  email    String
+  pixTipo  String?
+  pixChave String?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  eventoId String
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  gastos   Gasto[]   @relation("PagoPor")
+  divisoes Divisao[]
+}
+
+model Gasto {
+  id        String @id @default(uuid())
+  descricao String
+  valor     Float
+
+  pagoPorId String
+  pagoPor   Pessoa @relation("PagoPor", fields: [pagoPorId], references: [id], onDelete: Cascade)
+
+  eventoId String
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  divisoes  Divisao[]
+  createdAt DateTime  @default(now())
+}
+
+model Divisao {
+  id       String @id @default(uuid())
+  gastoId  String
+  pessoaId String
+  valor    Float
+
+  gasto  Gasto  @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  pessoa Pessoa @relation(fields: [pessoaId], references: [id], onDelete: Cascade)
+}
