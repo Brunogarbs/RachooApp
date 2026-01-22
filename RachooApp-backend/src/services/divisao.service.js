@@ -35,11 +35,16 @@ export async function calcularDivisaoFinal(eventoId) {
 
   // 4️⃣ Calcular saldos
   for (const d of divisoes) {
-    // quem devia
     saldoMap[d.pessoaId].saldo -= d.valor;
+  }
 
-    // quem pagou
-    saldoMap[d.gasto.pagoPorId].saldo += d.valor;
+  // 4.2 Quem pagou (valor REAL do gasto)
+  const gastos = await prisma.gasto.findMany({
+    where: { eventoId }
+  });
+
+  for (const gasto of gastos) {
+    saldoMap[gasto.pagoPorId].saldo += gasto.valor;
   }
 
   // 5️⃣ Separar quem deve e quem recebe

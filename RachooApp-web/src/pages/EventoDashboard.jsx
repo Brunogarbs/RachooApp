@@ -29,13 +29,14 @@ export default function EventoDashboard() {
   }
 
   async function criarGasto(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!descricao || !valor || !pagoPorId || pessoasIds.length === 0) {
-      alert("Preencha todos os campos");
-      return;
-    }
+  if (!descricao || !valor || !pagoPorId || pessoasIds.length === 0) {
+    alert("Preencha todos os campos");
+    return;
+  }
 
+  try {
     await api.post("/gastos", {
       descricao,
       valor: Number(valor),
@@ -51,17 +52,58 @@ export default function EventoDashboard() {
     setPessoasIds([]);
     setMostrarModal(false);
 
-    // recarrega dashboard
     carregarDashboard();
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao salvar gasto");
   }
+}
+
+
+  function agruparPorRecebedor(acertoFinal) {
+    const agrupado = {};
+
+    for (const item of acertoFinal) {
+      const recebedorId = item.para.id;
+
+      if (!agrupado[recebedorId]) {
+        agrupado[recebedorId] = {
+          recebedor: item.para,
+          total: 0,
+          devedores: []
+        };
+      }
+
+      agrupado[recebedorId].total += item.valor;
+
+      agrupado[recebedorId].devedores.push({
+        nome: item.de.nome,
+        valor: item.valor
+      });
+    }
+
+    return Object.values(agrupado);
+  }
+
+
+  function copiarPix(pix) {
+    navigator.clipboard.writeText(pix);
+    alert("PIX copiado!");
+  }
+
 
 
   useEffect(() => {
     carregarDashboard();
   }, [eventoId]);
 
-
   if (!data) return <p>Carregando evento...</p>;
+
+  const acertoFinal = data.acertoFinal || [];
+  
+  const acertoAgrupado = agruparPorRecebedor(acertoFinal);
+
+
 
   return (
     <div>
@@ -124,16 +166,48 @@ export default function EventoDashboard() {
 
       {/* ACERTO FINAL */}
       <h2>Acerto Final</h2>
-      {data.acertoFinal.length === 0 && <p>Tudo certo 🎉</p>}
 
-      {data.acertoFinal.map((a, i) => (
-        <p key={i}>
-          {a.de.nome} paga <strong>R$ {a.valor}</strong> para{" "}
-          {a.para.nome}
-          <br />
-          PIX: {a.para.pixChave}
-        </p>
-      ))}
+      {acertoAgrupado.length === 0 && (
+        <p>Todos estão com as contas em dia 🎉</p>
+      )}
+
+      <ul>
+        {acertoAgrupado.map((agrupado, index) => (
+          <li key={index} style={{ marginBottom: 12 }}>
+            <strong>{agrupado.recebedor.nome}</strong> recebe{" "}
+            <strong>R$ {agrupado.total.toFixed(2)}</strong>
+            <br />
+            <ul>
+              {agrupado.devedores.map((dev, i) => (
+                <li key={i}>
+                  {dev.nome} → R$ {dev.valor.toFixed(2)}
+                </li>
+              ))}
+            </ul>
+            <div style={{ marginTop: 4 }}>
+              {agrupado.recebedor.pixChave ? (
+                <>
+                  <span>
+                    PIX ({agrupado.recebedor.pixTipo}): {agrupado.recebedor.pixChave}
+                  </span>
+
+                  <button
+                    style={{ marginLeft: 8 }}
+                    onClick={() => copiarPix(agrupado.recebedor.pixChave)}
+                  >
+                    📋 Copiar PIX
+                  </button>
+                </>
+              ) : (
+                <span style={{ color: "red" }}>
+                  Pessoa sem PIX cadastrado
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      
 
       {mostrarModal && (
         <div style={overlayStyle}>
@@ -192,6 +266,7 @@ export default function EventoDashboard() {
     </div>
   );
 }
+
 
 const overlayStyle = {
   position: "fixed",

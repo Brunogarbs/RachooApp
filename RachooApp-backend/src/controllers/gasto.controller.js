@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+
 // Criar gasto
 export async function createGasto(req, res) {
   const { descricao, valor, pagoPorId, eventoId, pessoasIds } = req.body;
@@ -10,7 +11,6 @@ export async function createGasto(req, res) {
     return res.status(400).json({ error: "Dados obrigatórios ausentes" });
   }
 
-  // Verifica se o evento pertence ao usuário
   const evento = await prisma.evento.findFirst({
     where: { id: eventoId, userId: req.userId }
   });
@@ -19,28 +19,55 @@ export async function createGasto(req, res) {
     return res.status(403).json({ error: "Evento inválido" });
   }
 
-  const valorPorPessoa = Number((valor / pessoasIds.length).toFixed(2));
+  // 🔥 GERA DIVISÕES CORRETAS
+  const qtd = pessoasIds.length;
+  const valorTotal = Number(valor);
 
+  const valorBase = Math.floor((valorTotal / qtd) * 100) / 100;
+  let totalDistribuido = 0;
+
+  const divisoes = pessoasIds.map((pessoaId, index) => {
+    let valorDivisao = valorBase;
+
+    // última pessoa recebe ajuste de centavos
+    if (index === qtd - 1) {
+      valorDivisao = Number(
+        (valorTotal - totalDistribuido).toFixed(2)
+      );
+    }
+
+    totalDistribuido += valorDivisao;
+
+    return {
+      pessoaId,
+      valor: valorDivisao
+    };
+  });
+
+  // ✅ CRIA O GASTO + DIVISÕES
   const gasto = await prisma.gasto.create({
     data: {
       descricao,
-      valor,
+      valor: valorTotal,
       pagoPorId,
       eventoId,
       divisoes: {
-        create: pessoasIds.map(pessoaId => ({
-          pessoaId,
-          valor: valorPorPessoa
-        }))
+        create: divisoes
       }
     },
     include: {
-      divisoes: true
+      pagoPor: true,
+      divisoes: {
+        include: { pessoa: true }
+      }
     }
   });
 
+  // ✅ RESPONDE A REQUEST
   return res.status(201).json(gasto);
 }
+
+
 
 // Listar gastos do evento
 export async function listGastos(req, res) {
