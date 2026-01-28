@@ -59,37 +59,35 @@ export async function calcularDivisaoFinal(eventoId) {
   // 6️⃣ Gerar transferências
   const transferencias = [];
 
-  let i = 0, j = 0;
+  for (const credor of credores) {
+    let saldoCredor = credor.saldo;
 
-  while (i < devedores.length && j < credores.length) {
-    const devedor = devedores[i];
-    const credor = credores[j];
+    for (const devedor of devedores) {
+      if (saldoCredor <= 0) break;
+      if (devedor.saldo >= 0) continue;
 
-    const valor = Math.min(
-      Math.abs(devedor.saldo),
-      credor.saldo
-    );
+      const valor = Math.min(
+        saldoCredor,
+        Math.abs(devedor.saldo)
+      );
 
-    transferencias.push({
-      de: {
-        nome: devedor.pessoa.nome,
-        pixTipo: devedor.pessoa.pixTipo,
-        pixChave: devedor.pessoa.pixChave
-      },
-      para: {
-        nome: credor.pessoa.nome,
-        pixTipo: credor.pessoa.pixTipo,
-        pixChave: credor.pessoa.pixChave
-      },
-      valor: Number(valor.toFixed(2))
-    });
+      transferencias.push({
+        de: {
+          nome: devedor.pessoa.nome,
+          pixTipo: devedor.pessoa.pixTipo,
+          pixChave: devedor.pessoa.pixChave
+        },
+        para: {
+          nome: credor.pessoa.nome,
+          pixTipo: credor.pessoa.pixTipo,
+          pixChave: credor.pessoa.pixChave
+        },
+        valor: Number(valor.toFixed(2))
+      });
 
-    devedor.saldo += valor;
-    credor.saldo -= valor;
-
-    if (devedor.saldo === 0) i++;
-    if (credor.saldo === 0) j++;
+      saldoCredor -= valor;
+      devedor.saldo += valor;
+    }
   }
-
   return transferencias;
 }
